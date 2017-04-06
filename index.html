@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF8">
+    <title>14D007 Project</title>
+    <script src="lib/d3.v3.js" charset="utf-8"></script>
+    <link href="css/style.css" rel="stylesheet"/>
+  </head>
+
+  <body>
+    <header>
+      <h1>Military expenditure (% of GDP) of Nations</h1>
+      <p align="center">14D007 Data Visualization Project<br>
+                        Hans-Peter H&ouml;llwirth<br>
+                        April 2017</p>
+    </header>
+
+    <!-- chart -->
+    <p id="chart"></p>
+
+    <div align="center">
+      <!-- legend -->
+      <svg id="legend" width="888" height="18">
+        <circle class="legendCircle" cx="10" fill="#3366cc"/>
+        <text class="legendText" x="24" y="14">America</text>
+        <circle class="legendCircle" cx="110" fill="#dc3912"/>
+        <text class="legendText" x="124" y="14">East Asia &amp; Pacific</text>
+        <circle class="legendCircle" cx="250" fill="#ff9900"/>
+        <text class="legendText" x="264" y="14">Europe &amp; Central Asia</text>
+        <circle class="legendCircle" cx="400" fill="#109618"/>
+        <text class="legendText" x="414" y="14">Middle East &amp; North Africa</text>
+        <circle class="legendCircle" cx="575" fill="#990099"/>
+        <text class="legendText" x="589" y="14">South Asia</text>
+        <circle class="legendCircle" cx="700" fill="#000000"/>
+        <text class="legendText" x="714" y="14">Sub-Saharan Africa</text>
+      </svg>
+
+      <!-- control -->
+      <button align="center">Restart</button>
+    </div>
+    <footer> </footer>
+  </body>
+
+<!-- D3 code -->
+<script type="text/javascript">
+
+  // specification of the five visualized dimensions (excluding time)
+  function x(d) { return d.gdpCaptiva; }
+  function y(d) { return d.militaryExp; }
+  function radius(d) { return d.gdp; }
+  function color(d) { return d.region; }
+  function key(d) { return d.name; }
+
+  // chart dimensions
+  var margin = {top: 19.5, right: 19.5, bottom: 19.5, left: 39.5},
+      width = 960 - margin.right,
+      height = 500 - margin.top - margin.bottom;
+
+  // domain-specific data scales
+  var xScale = d3.scale.log().domain([100, 1.2e5]).range([0, width]),
+      yScale = d3.scale.sqrt().domain([0, 24]).range([height, 0]),
+      radiusScale = d3.scale.sqrt().domain([0, 3e12]).range([0, 40]),
+      colorScale = d3.scale.ordinal().range(["#990099", "#ff9900", "#109618", "#000000", "#3366cc", "#dc3912"]); //
+
+  // chart axis
+  var xAxis = d3.svg.axis().orient("bottom").scale(xScale).ticks(12, d3.format(",d")),
+      yAxis = d3.svg.axis().scale(yScale).orient("left");
+
+  // create SVG container
+  var svg = d3.select("#chart")
+    .append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+      .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  // add x-axis to container
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis);
+
+  // add x-axis label to container
+  svg.append("text")
+      .attr("class", "x label")
+      .attr("text-anchor", "end")
+      .attr("x", width)
+      .attr("y", height - 6)
+      .text("GDP per capita, inflation-adjusted (dollars)");
+
+  // add y-axis to container
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis);
+
+  // add y-axis label to container
+  svg.append("text")
+      .attr("class", "y label")
+      .attr("text-anchor", "end")
+      .attr("y", 6)
+      .attr("dy", ".75em")
+      .attr("transform", "rotate(-90)")
+      .text("military expenditure (% of GDP)");
+
+  // add the year label
+  var label = svg.append("text")
+      .attr("class", "year label")
+      .attr("text-anchor", "end")
+      .attr("y", height - 383)
+      .attr("x", width)
+      .text(1988);
+
+  // load the data
+  d3.json("data/military.json", function(nations) {
+
+   console.log(nations);
+    // A bisector since many nation's data is sparsely-defined.
+    var bisect = d3.bisector(function(d) { return d[0]; });
+
+    // add a "dot" circle per nation with color according to region
+    var dot = svg.append("g")
+        .attr("class", "dots")
+      .selectAll(".dot")
+        .data(interpolateData(1988))
+      .enter().append("circle")
+        .attr("class", "dot")
+        .style("fill", function(d) { return colorScale(color(d)); })
+        .call(position)
+        .sort(order);
+
+    // add country name as hint to each dot
+    dot.append("title")
+        .text(function(d) { return d.name; });
+
+    // Add an overlay for the year label.
+    var box = label.node().getBBox();
+
+    var overlay = svg.append("rect")
+          .attr("class", "overlay")
+          .attr("x", box.x)
+          .attr("y", box.y)
+          .attr("width", box.width)
+          .attr("height", box.height)
+          .on("mouseover", enableInteraction);
+
+    // Start a transition that interpolates the data based on year.
+    startTransition();
+
+    // position the dot on the graph
+    function position(dot) {
+      dot .attr("cx", function(d) { return xScale(x(d)); })
+          .attr("cy", function(d) { return yScale(y(d)); })
+          .attr("r", function(d) { return radiusScale(radius(d)); });
+    }
+
+    // ensure that smallest dots are shown on top
+    function order(a, b) {
+      return radius(b) - radius(a);
+    }
+
+    // start transition over years
+    function startTransition() {
+      svg.transition()
+          .duration(25000)
+          .ease("linear")
+          .tween("year", tweenYear)
+          .each("end", enableInteraction);
+    }
+
+    // stop transition
+    function pauseTransition() {
+      svg.transition().duration(0);
+    }
+
+    // After the transition finishes, you can mouseover to change the year.
+    function enableInteraction() {
+      var yearScale = d3.scale.linear()
+          .domain([1988, 2015])
+          .range([box.x + 10, box.x + box.width - 10])
+          .clamp(true);
+
+      pauseTransition();
+
+      overlay
+          .on("mouseover", mouseover)
+          .on("mouseout", mouseout)
+          .on("mousemove", mousemove)
+          .on("touchmove", mousemove);
+
+      function mouseover() {
+        label.classed("active", true);
+      }
+
+      function mouseout() {
+        label.classed("active", false);
+      }
+
+      function mousemove() {
+        displayYear(yearScale.invert(d3.mouse(this)[0]));
+      }
+    }
+
+    // Tweens the entire chart by first tweening the year, and then the data.
+    // For the interpolated data, the dots and label are redrawn.
+    function tweenYear() {
+      var year = d3.interpolateNumber(1988, 2015);
+      return function(t) { displayYear(year(t)); };
+    }
+
+    // Updates the display to show the specified year.
+    function displayYear(year) {
+      dot.data(interpolateData(year), key).call(position).sort(order);
+      label.text(Math.round(year));
+    }
+
+    // interpolate data for missing years
+    function interpolateData(year) {
+      return nations.map(function(d) {
+        return {
+          name: d.name,
+          region: d.region,
+          gdpCaptiva: interpolateValues(d.gdpCaptiva, year),
+          gdp: interpolateValues(d.gdp, year),
+          militaryExp: interpolateValues(d.militaryExp, year)
+        };
+      });
+    }
+
+    // Finds (and possibly interpolates) the value for the specified year.
+    function interpolateValues(values, year) {
+      var i = bisect.left(values, year, 0, values.length - 1),
+          a = values[i];
+      if (i > 0) {
+        var b = values[i - 1],
+            t = (year - a[0]) / (b[0] - a[0]);
+        return Math.max(0, a[1] * (1 - t) + b[1] * t);
+      }
+      return Math.max(0, a[1]);
+    }
+
+    // restart transition with button 'Restart' click
+    d3.select('button').on('click', function() {
+      startTransition();
+    });
+  });
+
+  function getColor(index) {
+    var col = ["#3366cc", "#dc3912", "#ff9900", "#109618", "#990099", "#0099c6", "#dd4477", "#66aa00", "#b82e2e", "#316395", "#994499", "#22aa99", "#aaaa11", "#6633cc", "#e67300", "#8b0707", "#651067", "#329262", "#5574a6", "#3b3eac"];
+    return col[1];
+  }
+</script>
+
+<script>
+  GoogleAnalyticsObject = "ga", ga = function() { ga.q.push(arguments); }, ga.q = [], ga.l = +new Date;
+  ga("create", "UA-48272912-3", "ocks.org");
+  ga("send", "pageview");
+</script>
+<script async src="http://www.google-analytics.com/analytics.js"></script>
