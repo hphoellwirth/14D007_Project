@@ -1,5 +1,5 @@
-# 14D007 Data Vizualization - FinalProject
-Title: Data vizualization of military expenditure (% of GDP) of nations
+# 14D007 Data Vizualization - Final Project
+Title: Data vizualization of military expenditure (% of GDP) of nations\n
 Author: Hans-Peter Hoellwirth
 Date: April 2017
 
