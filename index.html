@@ -29,16 +29,26 @@
         <text class="legendText" x="264" y="14">Europe &amp; Central Asia</text>
         <circle class="legendCircle" cx="400" fill="#109618"/>
         <text class="legendText" x="414" y="14">Middle East &amp; North Africa</text>
-        <circle class="legendCircle" cx="575" fill="#990099"/>
-        <text class="legendText" x="589" y="14">South Asia</text>
-        <circle class="legendCircle" cx="700" fill="#000000"/>
-        <text class="legendText" x="714" y="14">Sub-Saharan Africa</text>
+        <circle class="legendCircle" cx="579" fill="#990099"/>
+        <text class="legendText" x="593" y="14">South Asia</text>
+        <circle class="legendCircle" cx="695" fill="#000000"/>
+        <text class="legendText" x="709" y="14">Sub-Saharan Africa</text>
       </svg>
 
       <!-- control -->
       <button align="center">Restart</button>
     </div>
-    <footer> </footer>
+
+    <!-- description -->
+    <div align="center">
+      <br><br>
+      <p>Graph shows the annual changes in per-capita GDP (x), military expenditure (% of GDP) (y) and GDP (radius) of 165 nations over the past 27 years.<br>
+        Click anywhere on graph to start and stop transition. When stopped, mouseover the year to move forward and backwards through time. Mouseover circle for name of nation.</p>
+    </div>
+
+    <footer>
+      <p align="center">Data source: <a href="http://data.worldbank.org">The World Bank</a> | Code: <a href="https://github.com/hphoellwirth/14D007_Project">GitHub</a></p>
+    </footer>
   </body>
 
 <!-- D3 code -->
@@ -62,6 +72,10 @@
   function color(d) { return d.region; }
   function key(d) { return d.name; }
   function hint(d) { return "".concat(d.name, " (", roundTo(y(d),2),"%)"); }
+
+  // transition status
+  var transitionOn = true;
+  var transitionYear = 1988;
 
   // chart dimensions
   var margin = {top: 19.5, right: 19.5, bottom: 19.5, left: 39.5},
@@ -227,16 +241,17 @@
 
     // start transition over years
     function startTransition() {
-      //displayYear(1988);
       svg.transition()
-          .duration(25000)
+          .duration((2015-transitionYear)*1000)
           .ease("linear")
-          .tween("year", tweenYear)
+          .tween("year", function() { return tweenYear(transitionYear); })
           .each("end", enableInteraction);
     }
 
     // stop transition
     function pauseTransition() {
+      console.log(label.text());
+      transitionYear = label.text();
       svg.transition().duration(0);
     }
 
@@ -247,31 +262,25 @@
           .range([box.x + 10, box.x + box.width - 10])
           .clamp(true);
 
-      pauseTransition();
+      if (!transitionOn) {
+        pauseTransition();
+      }
 
       overlay
-          .on("mouseover", mouseover)
-          .on("mouseout", mouseout)
           .on("mousemove", mousemove)
           .on("touchmove", mousemove);
 
-      function mouseover() {
-        pauseTransition();
-        label.classed("active", true);
-      }
-
-      function mouseout() {
-        label.classed("active", false);
-      }
-
       function mousemove() {
-        displayYear(yearScale.invert(d3.mouse(this)[0]));
+        if (!transitionOn) {
+          transitionYear = yearScale.invert(d3.mouse(this)[0]);
+          displayYear(transitionYear);
+        }
       }
     }
 
     // tweens the entire chart by first tweening the year, and then the data
-    function tweenYear() {
-      var year = d3.interpolateNumber(1988, 2015);
+    function tweenYear(from) {
+      var year = d3.interpolateNumber(from, 2015);
       return function(t) { displayYear(year(t)); };
     }
 
@@ -308,7 +317,18 @@
 
     // restart transition with button 'Restart' click
     d3.select('button').on('click', function() {
+      transitionYear = 1988;
       startTransition();
+    });
+
+    // stop/start transition with mouse click on chart
+    d3.select('#chart').on('click', function() {
+      if (transitionOn)
+        pauseTransition();
+      else {
+        startTransition();
+      }
+      transitionOn = !transitionOn;
     });
   });
 </script>
