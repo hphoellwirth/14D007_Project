@@ -44,12 +44,24 @@
 <!-- D3 code -->
 <script type="text/javascript">
 
+  // round number n to digits decimals
+  function roundTo(n, digits) {
+      if (digits === undefined) {
+          digits = 0;
+      }
+
+      var multiplicator = Math.pow(10, digits);
+      n = parseFloat((n * multiplicator).toFixed(11));
+      return Math.round(n) / multiplicator;
+  }
+
   // specification of the five visualized dimensions (excluding time)
   function x(d) { return d.gdpCaptiva; }
   function y(d) { return d.militaryExp; }
   function radius(d) { return d.gdp; }
   function color(d) { return d.region; }
   function key(d) { return d.name; }
+  function hint(d) { return "".concat(d.name, " (", roundTo(y(d),2),"%)"); }
 
   // chart dimensions
   var margin = {top: 19.5, right: 19.5, bottom: 19.5, left: 39.5},
@@ -60,7 +72,7 @@
   var xScale = d3.scale.log().domain([100, 1.2e5]).range([0, width]),
       yScale = d3.scale.sqrt().domain([0, 24]).range([height, 0]),
       radiusScale = d3.scale.sqrt().domain([0, 3e12]).range([0, 40]),
-      colorScale = d3.scale.ordinal().range(["#990099", "#ff9900", "#109618", "#000000", "#3366cc", "#dc3912"]); //
+      colorScale = d3.scale.ordinal().range(["#990099", "#ff9900", "#109618", "#000000", "#3366cc", "#dc3912"]);
 
   // chart axis
   var xAxis = d3.svg.axis().orient("bottom").scale(xScale).ticks(12, d3.format(",d")),
@@ -73,6 +85,26 @@
       .attr("height", height + margin.top + margin.bottom)
     .append("g")
       .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  // add x-line to container
+  svg.append("line")
+      .attr("class", "xline")
+      .attr("x1", 0)
+      .attr("y1", height)
+      .attr("x2", 0)
+      .attr("y2", height)
+      .attr("stroke-width", 1)
+      .attr("stroke", "gray");
+
+  // add y-line to container
+  svg.append("line")
+      .attr("class", "yline")
+      .attr("x1", 0)
+      .attr("y1", 0)
+      .attr("x2", 0)
+      .attr("y2", 0)
+      .attr("stroke-width", 1)
+      .attr("stroke", "gray");
 
   // add x-axis to container
   svg.append("g")
@@ -113,26 +145,25 @@
   // load the data
   d3.json("data/military.json", function(nations) {
 
-   console.log(nations);
-    // A bisector since many nation's data is sparsely-defined.
+    // store date in bisector
     var bisect = d3.bisector(function(d) { return d[0]; });
 
-    // add a "dot" circle per nation with color according to region
+    // add a "dot" circle per nation with color according to region and empty hint text
     var dot = svg.append("g")
         .attr("class", "dots")
       .selectAll(".dot")
         .data(interpolateData(1988))
       .enter().append("circle")
         .attr("class", "dot")
+        .on("mouseover", function(d) { return selectDot(d); })
+        .on("mouseout", function(d) { return leaveDot(d); })
         .style("fill", function(d) { return colorScale(color(d)); })
         .call(position)
-        .sort(order);
-
-    // add country name as hint to each dot
+        .sort(order)
     dot.append("title")
-        .text(function(d) { return d.name; });
+        .text();
 
-    // Add an overlay for the year label.
+    // add an overlay for the year label to control mouseover
     var box = label.node().getBBox();
 
     var overlay = svg.append("rect")
@@ -143,14 +174,50 @@
           .attr("height", box.height)
           .on("mouseover", enableInteraction);
 
-    // Start a transition that interpolates the data based on year.
+    // start a transition that interpolates the data based on year
     startTransition();
 
-    // position the dot on the graph
+    // position the dot on the graph and set hint text
     function position(dot) {
       dot .attr("cx", function(d) { return xScale(x(d)); })
           .attr("cy", function(d) { return yScale(y(d)); })
-          .attr("r", function(d) { return radiusScale(radius(d)); });
+          .attr("r", function(d) { return radiusScale(radius(d)); })
+          .select("title").text(function(d) { return hint(d); });
+      resetAxisLines();
+    }
+
+    // select dot to draw axis lines
+    function selectDot(dot) {
+      drawAxisLines(dot);
+    }
+
+    // disable axis lines when leaving dot
+    function leaveDot(dot) {
+      resetAxisLines();
+    }
+
+    // draw axis lines for dot
+    function drawAxisLines(dot) {
+      svg.select(".xline")
+        .attr("x1", function() { return xScale(x(dot)); })
+        .attr("x2", function() { return xScale(x(dot)); })
+        .attr("y1", function() { return yScale(y(dot)); });
+      svg.select(".yline")
+        .attr("y1", function() { return yScale(y(dot)); })
+        .attr("y2", function() { return yScale(y(dot)); })
+        .attr("x2", function() { return xScale(x(dot)); });
+    }
+
+    // disable axis lines
+    function resetAxisLines() {
+      svg.select(".xline")
+        .attr("x1", 0)
+        .attr("x2", 0)
+        .attr("y1", 0);
+      svg.select(".yline")
+        .attr("y1", 0)
+        .attr("y2", 0)
+        .attr("x2", 0);
     }
 
     // ensure that smallest dots are shown on top
@@ -160,6 +227,7 @@
 
     // start transition over years
     function startTransition() {
+      //displayYear(1988);
       svg.transition()
           .duration(25000)
           .ease("linear")
@@ -172,7 +240,7 @@
       svg.transition().duration(0);
     }
 
-    // After the transition finishes, you can mouseover to change the year.
+    // mouseover control to change the year
     function enableInteraction() {
       var yearScale = d3.scale.linear()
           .domain([1988, 2015])
@@ -188,6 +256,7 @@
           .on("touchmove", mousemove);
 
       function mouseover() {
+        pauseTransition();
         label.classed("active", true);
       }
 
@@ -200,14 +269,13 @@
       }
     }
 
-    // Tweens the entire chart by first tweening the year, and then the data.
-    // For the interpolated data, the dots and label are redrawn.
+    // tweens the entire chart by first tweening the year, and then the data
     function tweenYear() {
       var year = d3.interpolateNumber(1988, 2015);
       return function(t) { displayYear(year(t)); };
     }
 
-    // Updates the display to show the specified year.
+    // updates the display to show the specified year
     function displayYear(year) {
       dot.data(interpolateData(year), key).call(position).sort(order);
       label.text(Math.round(year));
@@ -226,7 +294,7 @@
       });
     }
 
-    // Finds (and possibly interpolates) the value for the specified year.
+    // finds or interpolates the value for the specified year
     function interpolateValues(values, year) {
       var i = bisect.left(values, year, 0, values.length - 1),
           a = values[i];
@@ -243,16 +311,4 @@
       startTransition();
     });
   });
-
-  function getColor(index) {
-    var col = ["#3366cc", "#dc3912", "#ff9900", "#109618", "#990099", "#0099c6", "#dd4477", "#66aa00", "#b82e2e", "#316395", "#994499", "#22aa99", "#aaaa11", "#6633cc", "#e67300", "#8b0707", "#651067", "#329262", "#5574a6", "#3b3eac"];
-    return col[1];
-  }
 </script>
-
-<script>
-  GoogleAnalyticsObject = "ga", ga = function() { ga.q.push(arguments); }, ga.q = [], ga.l = +new Date;
-  ga("create", "UA-48272912-3", "ocks.org");
-  ga("send", "pageview");
-</script>
-<script async src="http://www.google-analytics.com/analytics.js"></script>
