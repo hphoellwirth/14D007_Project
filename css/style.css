@@ -5,31 +5,17 @@ body {
   font-size: 14px;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1 {
   font:14px/1.5 Lato, "Helvetica Neue", Helvetica, Arial, sans-serif;
   color:#222;
   margin:0 0 20px;
+  font-size:28px;
+  text-align: center;
+  line-height:1.1;
 }
 
 p, ul, ol, table, pre, dl {
   margin:0 0 20px;
-}
-
-h1, h2, h3 {
-  line-height:1.1;
-}
-
-h1 {
-  font-size:28px;
-  text-align: center;
-}
-
-h2 {
-  color:#393939;
-}
-
-h3, h4, h5, h6 {
-  color:#494949;
 }
 
 #chart {
@@ -79,17 +65,4 @@ text {
   r: 8px;
   stroke: "black";
   stroke-width: 2;
-}
-
-div.tooltip {
-    position: absolute;
-    text-align: center;
-    width: 60px;
-    height: 28px;
-    padding: 2px;
-    font: 12px sans-serif;
-    background: lightsteelblue;
-    border: 0px;
-    border-radius: 8px;
-    pointer-events: none;
 }
